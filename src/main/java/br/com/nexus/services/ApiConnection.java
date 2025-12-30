@@ -1,46 +1,53 @@
 package br.com.nexus.services;
 
+import br.com.nexus.loader.ConfigLoader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 public class ApiConnection {
-    private final String API_URL = "https://app.omie.com.br/api/v1/produtos/pedido/";
-    private final String APP_SECRET = "a0486e8e0d2fd9b8062f13182e68754d";
-    private final String APP_KEY = "2831120835543";
-    private final String JSON_BODY = """ 
+    private final String APP_SECRET = ConfigLoader.get("omie.app.secret");
+    private final String APP_KEY = ConfigLoader.get("omie.app.key");
+
+    private final String REQUEST_TEMPLATE = """
             {
-            "call":"ListarPedidos",
-            "param":[
-            {
-                "pagina":1,
-                    "registros_por_pagina":2,
-                    "apenas_importado_api":"N"
-                }],
-                    "app_key":"%s",
-                    "app_secret":"%s"
-            }""".formatted(APP_KEY, APP_SECRET);
+                "call": "%s",
+                "param": %s,
+                "app_key": "%s",
+                "app_secret": "%s"
+            }
+            """;
 
-    HttpClient httpClient = HttpClient.newHttpClient();
+    public String sendRequest(String urlLastPart,String callName, String paramJsonArray){
+        try {
+            String API_URL = ConfigLoader.get("omie.api.url") + urlLastPart;
+            String fullBody = REQUEST_TEMPLATE.formatted(
+                    callName,
+                    paramJsonArray,
+                    APP_KEY,
+                    APP_SECRET
+            );
 
-    HttpRequest httpRequest = HttpRequest.newBuilder()
-            .uri(URI.create(API_URL)).
-            header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(JSON_BODY))
-            .build();
-    public String sendRequest(){
-        try{
-            HttpResponse<String> responseJson = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            HttpClient httpClient = HttpClient.newHttpClient();
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(API_URL))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(fullBody))
+                    .build();
 
-            System.out.println("Success code: " + responseJson.statusCode());
-            return responseJson.body();
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                System.out.println("Error: " + response.statusCode());
+                System.out.println(response.body());
+            }
+
+            return response.body();
 
         } catch (Exception e) {
             System.out.println(e.getMessage());
+            return null;
         }
-        return null;
     }
-
-
 }
